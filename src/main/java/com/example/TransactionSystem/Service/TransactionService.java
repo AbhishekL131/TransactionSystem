@@ -1,0 +1,90 @@
+package com.example.TransactionSystem.Service;
+
+import java.util.Optional;
+import java.util.concurrent.locks.Lock;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.stereotype.Service;
+
+import com.example.TransactionSystem.Manager.UserLockManager;
+import com.example.TransactionSystem.Models.Transaction;
+import com.example.TransactionSystem.Models.TransactionDetails;
+import com.example.TransactionSystem.Models.Wallet;
+import com.example.TransactionSystem.Repository.TransactionDetailsRepository;
+
+import lombok.extern.slf4j.Slf4j;
+
+@Service
+@Slf4j
+public class TransactionService {
+
+    @Autowired
+    private TransactionDetailsRepository transactionDetailsRepo;
+
+    @Autowired
+    private WalletService walletService;
+
+    @Autowired
+    private UserLockManager lockManager;
+
+    public boolean makeTransaction(Transaction transaction){
+       String senderId = transaction.getSenderId();
+       String receiverId = transaction.getReceiverId();
+
+       String firstLockId = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
+       String secondLockId = senderId.compareTo(receiverId) < 0 ? receiverId : senderId;
+
+       Lock firstLock = lockManager.getLock(firstLockId);
+       Lock secondLock = lockManager.getLock(secondLockId);
+
+       firstLock.lock();
+       secondLock.lock();
+
+       try{
+        Optional<Wallet> senderWalletOpt = walletService.getWalletByUserId(senderId);
+        Optional<Wallet> receiverWalletOpt = walletService.getWalletByUserId(receiverId);
+
+        if(senderWalletOpt.isEmpty() || receiverWalletOpt.isEmpty()){
+            log.info("either sender or receiver wallet does not exist");
+            return false;
+        }
+
+        Wallet senderWallet = senderWalletOpt.get();
+        Wallet receiverWallet = receiverWalletOpt.get();
+
+        long amount = transaction.getAmount();
+
+        if(senderWallet.getBalance() < amount){
+            log.info("insufficient funds");
+            return false;
+        }
+
+       // Thread.sleep(8000);  /// processing delay
+
+        senderWallet.setBalance(senderWallet.getBalance()-amount);
+        receiverWallet.setBalance(receiverWallet.getBalance()+amount);
+
+        walletService.createWallet(senderWallet);
+        walletService.createWallet(receiverWallet);
+
+        TransactionDetails details = new TransactionDetails();
+        details.setSenderId(senderId);
+        details.setReceiverId(receiverId);
+        details.setAmount(amount);
+        details.setStatus("SUCCESS");
+
+        transactionDetailsRepo.save(details);
+
+        return true;
+       }catch(Exception e){
+        log.info("transaction failed");
+        return false;
+       }finally{
+         firstLock.unlock();
+         secondLock.unlock();
+       }
+    }
+
+    public Optional<TransactionDetails> getBySenderAndReceiverId(String senderId,String receiverId){
+        return transactionDetailsRepo.findBySenderIdAndReceiverId(senderId,receiverId);
+    }
+}
