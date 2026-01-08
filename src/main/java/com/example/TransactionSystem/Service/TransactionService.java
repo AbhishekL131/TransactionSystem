@@ -1,11 +1,10 @@
 package com.example.TransactionSystem.Service;
 
 import java.util.Optional;
-import java.util.concurrent.locks.Lock;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
 
-import com.example.TransactionSystem.Manager.UserLockManager;
 import com.example.TransactionSystem.Models.Transaction;
 import com.example.TransactionSystem.Models.TransactionDetails;
 import com.example.TransactionSystem.Models.Wallet;
@@ -23,9 +22,7 @@ public class TransactionService {
     @Autowired
     private WalletService walletService;
 
-    @Autowired
-    private UserLockManager lockManager;
-
+    @Transactional
     public boolean makeTransaction(Transaction transaction){
        String senderId = transaction.getSenderId();
        String receiverId = transaction.getReceiverId();
