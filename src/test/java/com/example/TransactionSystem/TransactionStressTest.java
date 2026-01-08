@@ -62,7 +62,7 @@ public class TransactionStressTest {
 
         long endTime = System.currentTimeMillis();
         
-        System.out.println("total time taken : "+(startTime-endTime)+"millis");
+        System.out.println("total time taken : "+(endTime-startTime)+"millis");
         System.out.println("stress test completed");
     }
 }

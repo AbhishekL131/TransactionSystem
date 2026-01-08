@@ -29,59 +29,39 @@ public class TransactionService {
     public boolean makeTransaction(Transaction transaction){
        String senderId = transaction.getSenderId();
        String receiverId = transaction.getReceiverId();
+       long amount = transaction.getAmount();
 
-       String firstLockId = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
-       String secondLockId = senderId.compareTo(receiverId) < 0 ? receiverId : senderId;
+       Optional<Wallet> senderWalletOpt = walletService.getWalletByUserId(senderId);
+       Optional<Wallet> receiverWalletOpt = walletService.getWalletByUserId(receiverId);
 
-       Lock firstLock = lockManager.getLock(firstLockId);
-       Lock secondLock = lockManager.getLock(secondLockId);
-
-       firstLock.lock();
-       secondLock.lock();
-
-       try{
-        Optional<Wallet> senderWalletOpt = walletService.getWalletByUserId(senderId);
-        Optional<Wallet> receiverWalletOpt = walletService.getWalletByUserId(receiverId);
-
-        if(senderWalletOpt.isEmpty() || receiverWalletOpt.isEmpty()){
-            log.info("either sender or receiver wallet does not exist");
-            return false;
-        }
-
-        Wallet senderWallet = senderWalletOpt.get();
-        Wallet receiverWallet = receiverWalletOpt.get();
-
-        long amount = transaction.getAmount();
-
-        if(senderWallet.getBalance() < amount){
-            log.info("insufficient funds");
-            return false;
-        }
-
-       // Thread.sleep(8000);  /// processing delay
-
-        senderWallet.setBalance(senderWallet.getBalance()-amount);
-        receiverWallet.setBalance(receiverWallet.getBalance()+amount);
-
-        walletService.createWallet(senderWallet);
-        walletService.createWallet(receiverWallet);
-
-        TransactionDetails details = new TransactionDetails();
-        details.setSenderId(senderId);
-        details.setReceiverId(receiverId);
-        details.setAmount(amount);
-        details.setStatus("SUCCESS");
-
-        transactionDetailsRepo.save(details);
-
-        return true;
-       }catch(Exception e){
-        log.info("transaction failed");
+       if(senderWalletOpt.isEmpty() || receiverWalletOpt.isEmpty()){
+        log.info("sender or receiver wallet does not exist");
         return false;
-       }finally{
-         firstLock.unlock();
-         secondLock.unlock();
        }
+
+       Wallet SenderWallet = senderWalletOpt.get();
+       Wallet ReceiverWallet = receiverWalletOpt.get();
+
+       if(SenderWallet.getBalance() < amount){
+        log.info("insufficient funds in sender account");
+        return false;
+       }
+
+       SenderWallet.setBalance(SenderWallet.getBalance()-amount);
+       ReceiverWallet.setBalance(ReceiverWallet.getBalance()+amount);
+
+       walletService.createWallet(SenderWallet);
+       walletService.createWallet(ReceiverWallet);
+
+       TransactionDetails tdt = new TransactionDetails();
+       tdt.setSenderId(SenderWallet.getUserId());
+       tdt.setReceiverId(ReceiverWallet.getUserId());
+       tdt.setAmount(amount);
+       tdt.setStatus("SUCCESSFUL");
+
+       transactionDetailsRepo.save(tdt);
+
+       return true;
     }
 
     public Optional<TransactionDetails> getBySenderAndReceiverId(String senderId,String receiverId){
