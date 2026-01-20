@@ -64,4 +64,7 @@ public class TransactionService {
     public Optional<TransactionDetails> getBySenderAndReceiverId(String senderId,String receiverId){
         return transactionDetailsRepo.findBySenderIdAndReceiverId(senderId,receiverId);
     }
+    public static void getName(){
+    
+    }
 }
